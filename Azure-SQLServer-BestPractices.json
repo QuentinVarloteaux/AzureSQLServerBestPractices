@@ -1,0 +1,585 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.25.53.49325",
+      "templateHash": "10062555793702979810"
+    }
+  },
+  "parameters": {
+    "applicationName": {
+      "type": "string",
+      "metadata": {
+        "description": "Nom du serveur SQL"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Localisation du groupe de ressources"
+      }
+    },
+    "environment": {
+      "type": "string",
+      "maxLength": 4,
+      "metadata": {
+        "description": "Type d'environnement (dev, test, prod, ...)"
+      }
+    },
+    "instanceNumber": {
+      "type": "string",
+      "defaultValue": "001",
+      "maxLength": 3,
+      "metadata": {
+        "description": "Nombre d'instances du serveur SQL"
+      }
+    },
+    "serverName": {
+      "type": "string",
+      "defaultValue": "[format('sql-{0}-{1}-{2}', parameters('applicationName'), parameters('environment'), parameters('instanceNumber'))]",
+      "metadata": {
+        "description": "Nom du serveur logique SQL"
+      }
+    },
+    "sqlDBName": {
+      "type": "string",
+      "defaultValue": "[parameters('applicationName')]",
+      "metadata": {
+        "description": "Nom de la base SQL"
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_E8bds_v5",
+      "allowedValues": [
+        "Standard_E4bds_v5",
+        "Standard_E8bds_v5",
+        "Standard_E16bds_v5",
+        "Standard_E32bds_v5",
+        "Standard_E48bds_v5",
+        "Standard_E64bds_v5",
+        "Standard_E96bds_v5"
+      ],
+      "metadata": {
+        "description": "Taille de la VM pour le serveur SQL"
+      }
+    },
+    "windowsVersion": {
+      "type": "string",
+      "defaultValue": "2022-datacenter-g2",
+      "allowedValues": [
+        "2016-datacenter-gensecond",
+        "2016-datacenter-server-core-g2",
+        "2016-datacenter-server-core-smalldisk-g2",
+        "2016-datacenter-smalldisk-g2",
+        "2016-datacenter-with-containers-g2",
+        "2016-datacenter-zhcn-g2",
+        "2019-datacenter-core-g2",
+        "2019-datacenter-core-smalldisk-g2",
+        "2019-datacenter-core-with-containers-g2",
+        "2019-datacenter-core-with-containers-smalldisk-g2",
+        "2019-datacenter-gensecond",
+        "2019-datacenter-smalldisk-g2",
+        "2019-datacenter-with-containers-g2",
+        "2019-datacenter-with-containers-smalldisk-g2",
+        "2019-datacenter-zhcn-g2",
+        "2022-datacenter-azure-edition",
+        "2022-datacenter-azure-edition-core",
+        "2022-datacenter-azure-edition-core-smalldisk",
+        "2022-datacenter-azure-edition-smalldisk",
+        "2022-datacenter-core-g2",
+        "2022-datacenter-core-smalldisk-g2",
+        "2022-datacenter-g2",
+        "2022-datacenter-smalldisk-g2"
+      ],
+      "metadata": {
+        "description": "Version de Windows du serveur SQL"
+      }
+    },
+    "securityType": {
+      "type": "string",
+      "defaultValue": "TrustedLaunch",
+      "allowedValues": [
+        "Standard",
+        "TrustedLaunch"
+      ],
+      "metadata": {
+        "description": "Type de sécurité du serveur SQL"
+      }
+    },
+    "adminLogin": {
+      "type": "string",
+      "defaultValue": "[format('sql{0}root', replace(parameters('applicationName'), '-', ''))]",
+      "metadata": {
+        "description": "Nom d'utilisateur de l'administrateur du serveur SQL"
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "defaultValue": "[newGuid()]",
+      "metadata": {
+        "description": "Mot de passe de l'administrateur du serveur SQL"
+      }
+    },
+    "existingVnetResourceGroup": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().name]",
+      "metadata": {
+        "description": "Nom du groupe de ressources du réseau existant"
+      }
+    },
+    "existingVirtualNetworkName": {
+      "type": "string",
+      "metadata": {
+        "description": "Nom du réseau virtuel existant"
+      }
+    },
+    "existingSubnetName": {
+      "type": "string",
+      "metadata": {
+        "description": "Nom du sous-réseau virtuel existant"
+      }
+    },
+    "sqlDataDisksCount": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "maxValue": 8,
+      "metadata": {
+        "description": "Nombre de disques de données (1To par disque)"
+      }
+    },
+    "sqlLogDisksCount": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "maxValue": 8,
+      "metadata": {
+        "description": "Nombre de disques de journaux de transactions (1To par disque)"
+      }
+    },
+    "imageOffer": {
+      "type": "string",
+      "defaultValue": "sql2019-ws2022",
+      "allowedValues": [
+        "sql2019-ws2019",
+        "sql2017-ws2019",
+        "sql2019-ws2022",
+        "SQL2016SP1-WS2016",
+        "SQL2016SP2-WS2016",
+        "SQL2014SP3-WS2012R2",
+        "SQL2014SP2-WS2012R2"
+      ],
+      "metadata": {
+        "description": "Nom de l'offre de l'image SQL"
+      }
+    },
+    "sqlSku": {
+      "type": "string",
+      "defaultValue": "standard-gen2",
+      "allowedValues": [
+        "standard-gen2",
+        "enterprise-gen2",
+        "SQLDEV-gen2",
+        "web-gen2",
+        "enterprisedbengineonly-gen2"
+      ],
+      "metadata": {
+        "description": "SKU de l'image SQL"
+      }
+    },
+    "storageWorkloadType": {
+      "type": "string",
+      "defaultValue": "General",
+      "allowedValues": [
+        "General",
+        "OLTP",
+        "DW"
+      ],
+      "metadata": {
+        "description": "Type de stockage des disques de données"
+      }
+    },
+    "dataPath": {
+      "type": "string",
+      "defaultValue": "F:\\SQLData",
+      "metadata": {
+        "description": "Chemin par défaut des fichiers de données"
+      }
+    },
+    "logPath": {
+      "type": "string",
+      "defaultValue": "G:\\SQLLog",
+      "metadata": {
+        "description": "Chemin par défaut des fichiers de journaux de transactions"
+      }
+    }
+  },
+  "variables": {
+    "networkInterfaceName": "[format('sql{0}nic', replace(parameters('applicationName'), '-', ''))]",
+    "networkSecurityGroupName": "[format('sql{0}nsg', replace(parameters('applicationName'), '-', ''))]",
+    "networkSecurityGroupRules": [
+      {
+        "name": "AllowRDP",
+        "properties": {
+          "priority": 1000,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "Tcp",
+          "sourcePortRange": "*",
+          "destinationPortRange": "3389",
+          "sourceAddressPrefix": "*",
+          "destinationAddressPrefix": "*"
+        }
+      },
+      {
+        "name": "AllowSQL",
+        "properties": {
+          "priority": 1001,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "Tcp",
+          "sourcePortRange": "*",
+          "destinationPortRange": "1433",
+          "sourceAddressPrefix": "*",
+          "destinationAddressPrefix": "*"
+        }
+      },
+      {
+        "name": "AllowSQLManagement",
+        "properties": {
+          "priority": 1002,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "Tcp",
+          "sourcePortRange": "*",
+          "destinationPortRange": "1434",
+          "sourceAddressPrefix": "*",
+          "destinationAddressPrefix": "*"
+        }
+      },
+      {
+        "name": "AllowSQLReplication",
+        "properties": {
+          "priority": 1003,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "Tcp",
+          "sourcePortRange": "*",
+          "destinationPortRange": "5022",
+          "sourceAddressPrefix": "*",
+          "destinationAddressPrefix": "*"
+        }
+      },
+      {
+        "name": "AllowSQLBackup",
+        "properties": {
+          "priority": 1004,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "Tcp",
+          "sourcePortRange": "*",
+          "destinationPortRange": "445",
+          "sourceAddressPrefix": "*",
+          "destinationAddressPrefix": "*"
+        }
+      },
+      {
+        "name": "AllowSQLBackup",
+        "properties": {
+          "priority": 1005,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "Tcp",
+          "sourcePortRange": "*",
+          "destinationPortRange": "4022",
+          "sourceAddressPrefix": "*",
+          "destinationAddressPrefix": "*"
+        }
+      },
+      {
+        "name": "AllowSQLBackup",
+        "properties": {
+          "priority": 1006,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "Tcp",
+          "sourcePortRange": "*",
+          "destinationPortRange": "135",
+          "sourceAddressPrefix": "*",
+          "destinationAddressPrefix": "*"
+        }
+      },
+      {
+        "name": "AllowSQLBackup",
+        "properties": {
+          "priority": 1007,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "Tcp",
+          "sourcePortRange": "*",
+          "destinationPortRange": "4022",
+          "sourceAddressPrefix": "*",
+          "destinationAddressPrefix": "*"
+        }
+      },
+      {
+        "name": "AllowSQLBackup",
+        "properties": {
+          "priority": 1008,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "Tcp",
+          "sourcePortRange": "*",
+          "destinationPortRange": "445"
+        }
+      }
+    ],
+    "publicIPAddressName": "[format('sql{0}ip', replace(parameters('applicationName'), '-', ''))]",
+    "publicIpAddressType": "Dynamic",
+    "publicIpAddressSku": "Basic",
+    "diskConfigurationType": "NEW",
+    "nsgId": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName'))]",
+    "subnetRef": "[resourceId(parameters('existingVnetResourceGroup'), 'Microsoft.Network/virtualNetWorks/subnets', parameters('existingVirtualNetworkName'), parameters('existingSubnetName'))]",
+    "dataDisksLuns": "[range(0, parameters('sqlDataDisksCount'))]",
+    "logDisksLuns": "[range(parameters('sqlDataDisksCount'), parameters('sqlLogDisksCount'))]",
+    "dataDisks": {
+      "createOption": "Empty",
+      "caching": "ReadOnly",
+      "writeAcceleratorEnabled": false,
+      "storageAccountType": "Premium_LRS",
+      "diskSizeGB": 1023
+    },
+    "tempDbPath": "D:\\SQLTemp",
+    "extensionName": "GuestAttestation",
+    "extensionPublisher": "Microsoft.Azure.Security.WindowsAttestation",
+    "extensionVersion": "1.0",
+    "maaTenantName": "maaTenant",
+    "securityProfileJson": {
+      "uefiSettings": {
+        "secureBootEnabled": true,
+        "vTpmEnabled": true
+      },
+      "securityType": "[parameters('securityType')]"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2022-01-01",
+      "name": "[variables('publicIPAddressName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[variables('publicIpAddressSku')]"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "[variables('publicIpAddressType')]"
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2022-01-01",
+      "name": "[variables('networkSecurityGroupName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": "[variables('networkSecurityGroupRules')]"
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2022-01-01",
+      "name": "[variables('networkInterfaceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]"
+              },
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              }
+            }
+          }
+        ],
+        "enableAcceleratedNetworking": true,
+        "networkSecurityGroup": {
+          "id": "[variables('nsgId')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2023-03-01",
+      "name": "[parameters('serverName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "storageProfile": {
+          "copy": [
+            {
+              "name": "dataDisks",
+              "count": "[length(range(0, length(range(0, add(parameters('sqlDataDisksCount'), parameters('sqlLogDisksCount'))))))]",
+              "input": {
+                "lun": "[range(0, add(parameters('sqlDataDisksCount'), parameters('sqlLogDisksCount')))[range(0, length(range(0, add(parameters('sqlDataDisksCount'), parameters('sqlLogDisksCount')))))[copyIndex('dataDisks')]]]",
+                "createOption": "[variables('dataDisks').createOption]",
+                "caching": "[if(greaterOrEquals(range(0, add(parameters('sqlDataDisksCount'), parameters('sqlLogDisksCount')))[range(0, length(range(0, add(parameters('sqlDataDisksCount'), parameters('sqlLogDisksCount')))))[copyIndex('dataDisks')]], parameters('sqlDataDisksCount')), 'None', variables('dataDisks').caching)]",
+                "writeAcceleratorEnabled": "[variables('dataDisks').writeAcceleratorEnabled]",
+                "managedDisk": {
+                  "storageAccountType": "[variables('dataDisks').storageAccountType]"
+                }
+              }
+            }
+          ],
+          "osDisk": {
+            "createOption": "FromImage",
+            "caching": "ReadOnly",
+            "managedDisk": {
+              "storageAccountType": "Premium_LRS"
+            }
+          },
+          "imageReference": {
+            "publisher": "MicrosoftSQLServer",
+            "offer": "[parameters('imageOffer')]",
+            "sku": "[parameters('sqlSku')]",
+            "version": "latest"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('networkInterfaceName'))]"
+            }
+          ]
+        },
+        "osProfile": {
+          "computerName": "[parameters('serverName')]",
+          "adminUsername": "[parameters('adminLogin')]",
+          "adminPassword": "[parameters('adminPassword')]",
+          "windowsConfiguration": {
+            "provisionVMAgent": true,
+            "enableAutomaticUpdates": true
+          }
+        },
+        "securityProfile": "[if(equals(parameters('securityType'), 'TrustedLaunch'), variables('securityProfileJson'), null())]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('networkInterfaceName'))]"
+      ]
+    },
+    {
+      "condition": "[and(equals(parameters('securityType'), 'TrustedLaunch'), and(equals(variables('securityProfileJson').uefiSettings.secureBootEnabled, true()), equals(variables('securityProfileJson').uefiSettings.vTpmEnabled, true())))]",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "apiVersion": "2023-03-01",
+      "name": "[format('{0}/{1}', parameters('serverName'), variables('extensionName'))]",
+      "properties": {
+        "publisher": "[variables('extensionPublisher')]",
+        "type": "[variables('extensionName')]",
+        "typeHandlerVersion": "[variables('extensionVersion')]",
+        "autoUpgradeMinorVersion": true,
+        "enableAutomaticUpgrade": true,
+        "settings": {
+          "AttestationConfig": {
+            "MaaSettings": {
+              "maaEndpoint": "",
+              "maaTenantName": "[variables('maaTenantName')]"
+            },
+            "AscSettings": {
+              "ascReportingEndpoint": "",
+              "ascReportingFrequency": ""
+            },
+            "useCustomToken": "false",
+            "disableAlerts": "false"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', parameters('serverName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.SqlVirtualMachine/sqlVirtualMachines",
+      "apiVersion": "2022-02-01",
+      "name": "[parameters('serverName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "virtualMachineResourceId": "[resourceId('Microsoft.Compute/virtualMachines', parameters('serverName'))]",
+        "sqlManagement": "Full",
+        "sqlServerLicenseType": "PAYG",
+        "storageConfigurationSettings": {
+          "diskConfigurationType": "[variables('diskConfigurationType')]",
+          "storageWorkloadType": "[parameters('storageWorkloadType')]",
+          "sqlDataSettings": {
+            "luns": "[variables('dataDisksLuns')]",
+            "defaultFilePath": "[parameters('dataPath')]"
+          },
+          "sqlLogSettings": {
+            "luns": "[variables('logDisksLuns')]",
+            "defaultFilePath": "[parameters('logPath')]"
+          },
+          "sqlTempDbSettings": {
+            "defaultFilePath": "[variables('tempDbPath')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', parameters('serverName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-01-01",
+      "name": "[format('sql{0}storage', replace(parameters('applicationName'), '-', ''))]",
+      "location": "[parameters('location')]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_LRS"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2023-01-01",
+      "name": "[format('{0}/{1}', format('sql{0}storage', replace(parameters('applicationName'), '-', '')), 'default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', format('sql{0}storage', replace(parameters('applicationName'), '-', '')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-01-01",
+      "name": "[format('{0}/{1}/{2}', format('sql{0}storage', replace(parameters('applicationName'), '-', '')), 'default', format('sql{0}container', replace(parameters('applicationName'), '-', '')))]",
+      "properties": {
+        "publicAccess": "None",
+        "metadata": {
+          "applicationName": "[parameters('applicationName')]",
+          "environment": "[parameters('environment')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', format('sql{0}storage', replace(parameters('applicationName'), '-', '')), 'default')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "adminLogin": {
+      "type": "string",
+      "value": "[parameters('adminLogin')]"
+    },
+    "adminPassword": {
+      "type": "string",
+      "value": "[parameters('adminPassword')]"
+    }
+  }
+}
